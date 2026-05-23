@@ -7,6 +7,20 @@
 
 ---
 
+## Скачать готовую сборку
+
+**[Releases](https://github.com/VladislavIvanovQA/GetCourseScripts/releases)** — два архива без установки Go:
+
+| Файл | Платформа |
+|------|-----------|
+| `GetCourseDownloader-windows-amd64.zip` | Windows 10/11 (64-bit) |
+| `GetCourseDownloader-macos-universal.zip` | macOS 11+ (Intel и Apple Silicon) |
+
+Распакуйте → запустите программу → подключите расширение из папки `extension` (см. `RELEASE.txt` в архиве).  
+Для видео нужен **ffmpeg** (на Windows — `ffmpeg.exe` рядом с exe; расширение подскажет ссылку).
+
+---
+
 ## Совместимость с GetCourse
 
 GetCourse — **единая платформа** (SaaS): у каждой школы свой домен (`school.getcourse.ru` или свой сайт на инфраструктуре GC), но типовая разметка и API похожи.
@@ -79,12 +93,25 @@ GetCourse — **единая платформа** (SaaS): у каждой шко
 
 ---
 
-## Очередь и прогресс (расширение v1.4+)
+## Очередь и прогресс (расширение v1.5+)
 
 - Загрузки идут **в фоне** — popup можно закрыть.
 - **+ В очередь** — добавить урок с текущей вкладки.
 - Статус и прогресс сохраняются; на иконке расширения: `…` (идёт работа) или цифра (ожидают).
 - Опции: PDF страницы, `lesson.txt`, видео.
+
+---
+
+## Сборка релиза (maintainers)
+
+Тег `v*` запускает [GitHub Actions](.github/workflows/release.yml): Windows amd64 + macOS universal zip → Release.
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Локально: `scripts/build.ps1` / `scripts/build-mac.sh`, затем `scripts/package-release.ps1` или `package-release.sh`.
 
 ---
 

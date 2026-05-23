@@ -9,11 +9,15 @@
 ## 1. Клонирование
 
 ```powershell
-git clone https://github.com/YOUR_USER/GetCourseScripts.git
+git clone https://github.com/VladislavIvanovQA/GetCourseScripts.git
 cd GetCourseScripts
 ```
 
-## 2. Сборка
+## 2. Установка
+
+**Готовый архив:** [Releases](https://github.com/VladislavIvanovQA/GetCourseScripts/releases) → `GetCourseDownloader-windows-amd64.zip`.
+
+**Сборка из исходников:**
 
 ```powershell
 .\scripts\setup-go.ps1      # один раз, если Go не установлен

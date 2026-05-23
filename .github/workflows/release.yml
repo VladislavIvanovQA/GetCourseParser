@@ -1,0 +1,121 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create (e.g. v1.0.0)"
+        required: true
+        default: "v1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache-dependency-path: desktop/go.mod
+
+      - name: Build
+        shell: pwsh
+        run: |
+          $out = "dist/GetCourseDownloader"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          Push-Location desktop
+          go build -ldflags "-s -w" -o "../$out/GetCourseDownloader.exe" .
+          Pop-Location
+          Copy-Item -Recurse -Force extension "$out/extension"
+          New-Item -ItemType Directory -Force -Path "$out/downloads" | Out-Null
+
+      - name: Package zip
+        shell: pwsh
+        run: |
+          ./scripts/package-release.ps1 -ZipPath "GetCourseDownloader-windows-amd64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-amd64
+          path: GetCourseDownloader-windows-amd64.zip
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache-dependency-path: desktop/go.mod
+
+      - name: Build universal binary
+        run: |
+          set -euo pipefail
+          OUT="dist/GetCourseDownloader"
+          mkdir -p "$OUT" "$OUT/downloads"
+          cd desktop
+          GOARCH=amd64 go build -ldflags "-s -w" -o ../dist/mac-amd64 .
+          GOARCH=arm64 go build -ldflags "-s -w" -o ../dist/mac-arm64 .
+          lipo -create -output "../$OUT/GetCourseDownloader" ../dist/mac-amd64 ../dist/mac-arm64
+          cd ..
+          rm -rf dist/mac-amd64 dist/mac-arm64
+          rm -rf "$OUT/extension"
+          cp -R extension "$OUT/extension"
+
+      - name: Package zip
+        run: |
+          chmod +x scripts/package-release.sh
+          ./scripts/package-release.sh GetCourseDownloader-macos-universal.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: GetCourseDownloader-macos-universal.zip
+
+  publish:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Resolve version tag
+        id: ver
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: GetCourse Downloader ${{ steps.ver.outputs.tag }}
+          draft: false
+          generate_release_notes: true
+          files: |
+            artifacts/windows-amd64/GetCourseDownloader-windows-amd64.zip
+            artifacts/macos-universal/GetCourseDownloader-macos-universal.zip
+          body: |
+            ## Скачать
+
+            | Платформа | Архив |
+            |-----------|--------|
+            | **Windows** 10/11 (64-bit) | `GetCourseDownloader-windows-amd64.zip` |
+            | **macOS** 11+ (Intel + Apple Silicon) | `GetCourseDownloader-macos-universal.zip` |
+
+            В каждом архиве: приложение, папка `extension`, `RELEASE.txt`.
+
+            **Видео:** нужен `ffmpeg` рядом с программой (Windows) или в PATH / рядом (macOS). Расширение Chrome подскажет, если ffmpeg не найден.
+
+            Расширение: `chrome://extensions` → загрузить распакованное → папка `extension` из архива.

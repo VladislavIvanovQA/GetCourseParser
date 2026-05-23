@@ -1,0 +1,21 @@
+GetCourse Downloader — portable build
+=====================================
+
+1. Распакуйте архив в любую папку.
+
+2. Видео требует ffmpeg:
+   - Windows: положите ffmpeg.exe рядом с GetCourseDownloader.exe
+     (расширение Chrome подскажет ссылку на скачивание, или scripts/setup-ffmpeg.ps1 из репозитория).
+   - macOS: brew install ffmpeg  ИЛИ  положите бинарник ffmpeg рядом с GetCourseDownloader.
+
+3. Запустите GetCourseDownloader (.exe на Windows).
+
+4. Chrome → chrome://extensions → Режим разработчика →
+   «Загрузить распакованное» → папка extension внутри этой папки.
+
+5. На странице урока GetCourse: «Подключиться» → «+ В очередь».
+   Включите видео в плеере хотя бы на несколько секунд перед скачиванием.
+
+Не публикуйте config.json — в нём токен доступа к localhost API.
+
+Подробнее: https://github.com/VladislavIvanovQA/GetCourseScripts

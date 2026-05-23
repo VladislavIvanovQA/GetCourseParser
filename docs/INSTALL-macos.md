@@ -23,13 +23,17 @@ ffmpeg -version
 ## 2. Клонирование
 
 ```bash
-git clone https://github.com/YOUR_USER/GetCourseScripts.git
+git clone https://github.com/VladislavIvanovQA/GetCourseScripts.git
 cd GetCourseScripts
 ```
 
 Замените URL на свой репозиторий после публикации на GitHub.
 
-## 3. Сборка приложения
+## 3. Установка
+
+**Готовый архив:** [Releases](https://github.com/VladislavIvanovQA/GetCourseScripts/releases) → `GetCourseDownloader-macos-universal.zip`.
+
+**Сборка из исходников:**
 
 ```bash
 chmod +x scripts/build-mac.sh
