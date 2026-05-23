@@ -1,0 +1,22 @@
+# Build output & local runtime
+dist/
+!dist/.gitkeep
+downloads/
+**/config.json
+*.exe
+
+# Portable Go SDK (run scripts/setup-go.ps1 locally)
+tools/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Secrets (extension may cache token in browser storage only)
+.env
+.env.*

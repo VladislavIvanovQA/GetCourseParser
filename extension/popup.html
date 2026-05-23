@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { font-family: system-ui, sans-serif; width: 360px; margin: 12px; font-size: 13px; }
+    h1 { font-size: 15px; margin: 0 0 8px; }
+    label { display: block; margin-top: 6px; color: #444; }
+    input[type=text], input[type=number] { width: 100%; box-sizing: border-box; margin-top: 2px; }
+    button { margin-top: 8px; width: 100%; padding: 8px; cursor: pointer; }
+    button.secondary { background: #f0f0f0; }
+    .row { display: flex; gap: 8px; }
+    .row button { flex: 1; }
+    .hint { color: #666; font-size: 11px; margin-top: 6px; }
+    #queue { margin-top: 10px; max-height: 280px; overflow-y: auto; }
+    .job {
+      border: 1px solid #ddd; border-radius: 6px; padding: 8px; margin-bottom: 8px;
+      background: #fafafa;
+    }
+    .job.running { border-color: #e67e22; background: #fff8f0; }
+    .job.done { border-color: #27ae60; background: #f0fff4; }
+    .job.error { border-color: #c0392b; background: #fff5f5; }
+    .job-title { font-weight: 600; margin-bottom: 4px; }
+    .job-msg { font-size: 12px; color: #555; }
+    .bar { height: 6px; background: #e0e0e0; border-radius: 3px; margin: 6px 0; overflow: hidden; }
+    .bar > i { display: block; height: 100%; background: #3498db; width: 0; transition: width 0.3s; }
+    .job.running .bar > i { background: #e67e22; }
+    .job.done .bar > i { background: #27ae60; width: 100% !important; }
+    #ffmpegBanner {
+      display: none;
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #e67e22;
+      background: #fff8f0;
+      font-size: 12px;
+    }
+    #ffmpegBanner.visible { display: block; }
+    #ffmpegBanner.ok {
+      border-color: #27ae60;
+      background: #f0fff4;
+    }
+    #ffmpegBanner h2 { font-size: 13px; margin: 0 0 6px; }
+    #ffmpegBanner ol { margin: 6px 0 0 18px; padding: 0; }
+    #ffmpegBanner li { margin-bottom: 4px; }
+    #ffmpegBanner .actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+    #ffmpegBanner button { width: auto; flex: 1; min-width: 120px; margin-top: 0; padding: 6px 8px; font-size: 12px; }
+    #ffmpegBanner code { font-size: 11px; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>GetCourse Downloader</h1>
+  <label>Port <input id="port" type="number" value="18765" /></label>
+  <label>Token <input id="token" type="text" placeholder="from config.json" /></label>
+  <button id="connect">Подключиться</button>
+
+  <div id="ffmpegBanner" aria-live="polite">
+    <h2 id="ffmpegTitle"></h2>
+    <p id="ffmpegPath" class="hint"></p>
+    <ol id="ffmpegSteps"></ol>
+    <div class="actions">
+      <button type="button" id="ffmpegDownload">Скачать ffmpeg</button>
+      <button type="button" class="secondary" id="ffmpegRecheck">Проверить снова</button>
+    </div>
+  </div>
+
+  <label><input type="checkbox" id="savePdf" checked /> PDF страницы</label>
+  <label><input type="checkbox" id="saveText" checked /> Текст lesson.txt</label>
+
+  <div class="row">
+    <button id="enqueue">+ В очередь</button>
+    <button id="enqueueNow">Скачать сейчас</button>
+  </div>
+  <div class="row">
+    <button class="secondary" id="clearDone">Очистить готовые</button>
+  </div>
+
+  <p class="hint">Очередь работает в фоне — можно закрыть это окно. Статус на иконке расширения.</p>
+
+  <div id="queue"></div>
+
+  <script src="ffmpeg-check.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+# GetCourse Downloader
+
+Инструмент для **личного архивирования** уроков [GetCourse](https://getcourse.ru/): вложения, текст, PDF страницы, видео (HLS).  
+Состоит из **расширения Chrome** (сбор данных и очередь) и **локального приложения** (скачивание через `ffmpeg`).
+
+> **Важно:** используйте только для материалов, на которые у вас есть право доступа. Не публикуйте `config.json` и не коммитьте папку `downloads/` — там могут быть личные ссылки и куки.
+
+---
+
+## Совместимость с GetCourse
+
+GetCourse — **единая платформа** (SaaS): у каждой школы свой домен (`school.getcourse.ru` или свой сайт на инфраструктуре GC), но типовая разметка и API похожи.
+
+Парсер ориентирован на стандартные паттерны:
+
+| Что | Паттерн |
+|-----|---------|
+| Страница урока | `/pl/teach/control/lesson/view?id=…` |
+| Файлы | `/pl/fileservice/…/file/download/…` |
+| Видео (часто) | `gceuproxy.com` / Kinescope, master playlist `…/api/playlist/master/…` |
+| Плеер | `*.gcfiles.net` |
+
+**Обычно работает** на большинстве школ GetCourse с классическим интерфейсом урока.
+
+**Может не сработать или работать частично:**
+
+- урок только с YouTube/Vimeo без GC-плеера (видео не перехватится автоматически);
+- нестандартная вёрстка / старые шаблоны без `/pl/`;
+- нет доступа к уроку (не куплен курс, истёк доступ);
+- жёсткий DRM или нестандартный CDN;
+- вы не включили видео в плеере до скачивания (для HLS нужны сетевые запросы).
+
+---
+
+## Структура проекта
+
+```
+├── extension/          # Расширение Chrome (MV3)
+├── desktop/            # Локальный сервер на Go
+├── scripts/            # Сборка (Windows / macOS)
+├── page_and_video_downloader.sh   # Альтернатива: только bash (любая ОС)
+└── dist/               # Сюда попадает сборка (в git не коммитится)
+```
+
+---
+
+## Быстрый старт (Windows)
+
+1. Собрать приложение:
+   ```powershell
+   .\scripts\setup-go.ps1    # один раз, если нет Go
+   .\scripts\build.ps1
+   .\scripts\setup-ffmpeg.ps1
+   ```
+2. Запустить `dist\GetCourseDownloader\GetCourseDownloader.exe`
+3. Chrome → `chrome://extensions` → **Загрузить распакованное** → папка `extension`
+4. На уроке: **Подключиться** → **+ В очередь** или **Скачать сейчас** (видео в плеере должно хотя бы раз проиграться)
+
+Подробнее: [docs/INSTALL-windows.md](docs/INSTALL-windows.md)
+
+---
+
+## Быстрый старт (macOS)
+
+1. Установить зависимости:
+   ```bash
+   brew install go ffmpeg
+   ```
+2. Собрать и запустить:
+   ```bash
+   chmod +x scripts/build-mac.sh
+   ./scripts/build-mac.sh
+   cd dist/GetCourseDownloader
+   ./GetCourseDownloader
+   ```
+3. Расширение — как на Windows, папка `extension` из корня репозитория.
+
+Подробнее: [docs/INSTALL-macos.md](docs/INSTALL-macos.md)
+
+---
+
+## Очередь и прогресс (расширение v1.4+)
+
+- Загрузки идут **в фоне** — popup можно закрыть.
+- **+ В очередь** — добавить урок с текущей вкладки.
+- Статус и прогресс сохраняются; на иконке расширения: `…` (идёт работа) или цифра (ожидают).
+- Опции: PDF страницы, `lesson.txt`, видео.
+
+---
+
+## Публикация на GitHub — что не коммитить
+
+В `.gitignore` уже исключено:
+
+- `dist/` (сборки, `config.json` с токеном, скачанные уроки)
+- `downloads/`
+- `tools/` (локальный SDK Go для Windows)
+- `config.json` в любой папке
+
+Перед первым push проверьте:
+
+```bash
+git status
+# не должно быть: downloads, config.json, *.exe с токенами, lesson.txt с URL школы
+```
+
+Если форкнете репозиторий под своим именем, при желании смените module path:
+
+```bash
+cd desktop
+go mod edit -module=github.com/YOUR_USER/YOUR_REPO
+# и обновите import paths в .go файлах
+```
+
+---
+
+## Альтернатива: только bash
+
+```bash
+chmod +x page_and_video_downloader.sh
+./page_and_video_downloader.sh interactive
+```
+
+Нужны: `python3`, `curl`, `ffmpeg`, bash.
+
+---
+
+## API (localhost)
+
+| Метод | Путь | Описание |
+|--------|------|----------|
+| GET | `/health` | Проверка |
+| GET | `/api/pair` | Токен для расширения |
+| POST | `/api/lesson` | Загрузка (`async: true` → опрос `/api/job?id=`) |
+| GET | `/api/job?id=` | Прогресс фоновой задачи |
+
+---
+
+## Лицензия
+
+MIT — см. [LICENSE](LICENSE). Автор не связан с GetCourse. Использование на свой риск и в рамках правил школы/платформы.
