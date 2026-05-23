@@ -9,15 +9,35 @@
 
 ## Скачать готовую сборку
 
-**[Releases](https://github.com/VladislavIvanovQA/GetCourseScripts/releases)** — два архива без установки Go:
+Полный список релизов: **[Releases](https://github.com/VladislavIvanovQA/GetCourseScripts/releases)**.
 
-| Файл | Платформа |
-|------|-----------|
-| `GetCourseDownloader-windows-amd64.zip` | Windows 10/11 (64-bit) |
-| `GetCourseDownloader-macos-universal.zip` | macOS 11+ (Intel и Apple Silicon) |
+Ниже — **прямые ссылки на артефакты** последнего релиза (`/releases/latest/download/…`).  
+Скачайте архив под свою систему (не нужно знать «amd64» — смотрите колонку «Кому»):
+
+| Кому | Скачать |
+|------|---------|
+| Windows 10/11, обычный ПК (Intel/AMD 64-bit) | [GetCourseDownloader-windows-x64.zip](https://github.com/VladislavIvanovQA/GetCourseScripts/releases/latest/download/GetCourseDownloader-windows-x64.zip) |
+| Windows на ARM (Surface Pro X и др.) | [GetCourseDownloader-windows-arm64.zip](https://github.com/VladislavIvanovQA/GetCourseScripts/releases/latest/download/GetCourseDownloader-windows-arm64.zip) |
+| Старый Windows 32-bit | [GetCourseDownloader-windows-x86.zip](https://github.com/VladislavIvanovQA/GetCourseScripts/releases/latest/download/GetCourseDownloader-windows-x86.zip) |
+| macOS 11+ (Intel и Apple Silicon — один файл) | [GetCourseDownloader-macos.zip](https://github.com/VladislavIvanovQA/GetCourseScripts/releases/latest/download/GetCourseDownloader-macos.zip) |
+| Linux 64-bit (Ubuntu, Fedora, …) | [GetCourseDownloader-linux-x64.zip](https://github.com/VladislavIvanovQA/GetCourseScripts/releases/latest/download/GetCourseDownloader-linux-x64.zip) |
+| Linux ARM64 (Raspberry Pi, некоторые VPS) | [GetCourseDownloader-linux-arm64.zip](https://github.com/VladislavIvanovQA/GetCourseScripts/releases/latest/download/GetCourseDownloader-linux-arm64.zip) |
 
 Распакуйте → запустите программу → подключите расширение из папки `extension` (см. `RELEASE.txt` в архиве).  
-Для видео нужен **ffmpeg** (на Windows — `ffmpeg.exe` рядом с exe; расширение подскажет ссылку).
+Для видео нужен **ffmpeg** той же разрядности, что и программа (расширение подскажет ссылку, если его нет).
+
+<details>
+<summary>Почему несколько файлов, а не один «на всех»?</summary>
+
+У процессоров разная **архитектура** — одна программа не запустится на «чужом» CPU. Поэтому в CI собираются отдельные бинарники:
+
+- **x64** — почти все современные ПК и ноутбуки Windows/Linux;
+- **arm64** — Mac с Apple Silicon, Windows на ARM, многие одноплатники;
+- **x86** — редкие старые 32-bit Windows;
+- **macOS** — один ZIP с «универсальным» бинарником (Intel + Apple Silicon внутри).
+
+Раньше в названии было `amd64` — это то же самое, что **x64** для Windows/Linux.
+</details>
 
 ---
 
@@ -104,7 +124,7 @@ GetCourse — **единая платформа** (SaaS): у каждой шко
 
 ## Сборка релиза (maintainers)
 
-Тег `v*` запускает [GitHub Actions](.github/workflows/release.yml): Windows amd64 + macOS universal zip → Release.
+Тег `v*` запускает [GitHub Actions](.github/workflows/release.yml): Windows (x64, ARM, x86), macOS universal, Linux (x64, ARM64) → Release.
 
 ```bash
 git tag v1.0.0

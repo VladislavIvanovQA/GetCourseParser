@@ -15,7 +15,7 @@ cd GetCourseScripts
 
 ## 2. Установка
 
-**Готовый архив:** [Releases](https://github.com/VladislavIvanovQA/GetCourseScripts/releases) → `GetCourseDownloader-windows-amd64.zip`.
+**Готовый архив:** [Releases](https://github.com/VladislavIvanovQA/GetCourseScripts/releases) или прямая ссылка [windows-x64](https://github.com/VladislavIvanovQA/GetCourseScripts/releases/latest/download/GetCourseDownloader-windows-x64.zip) (обычный ПК). Для ARM: [windows-arm64](https://github.com/VladislavIvanovQA/GetCourseScripts/releases/latest/download/GetCourseDownloader-windows-arm64.zip).
 
 **Сборка из исходников:**
 

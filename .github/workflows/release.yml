@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to create (e.g. v1.0.0)"
+        description: "Release tag to create (e.g. v1.1.0)"
         required: true
-        default: "v1.0.0"
+        default: "v1.1.0"
 
 permissions:
   contents: write
@@ -25,26 +25,32 @@ jobs:
           go-version: "1.22.x"
           cache-dependency-path: desktop/go.mod
 
-      - name: Build
+      - name: Build all Windows architectures
         shell: pwsh
         run: |
-          $out = "dist/GetCourseDownloader"
-          New-Item -ItemType Directory -Force -Path $out | Out-Null
-          Push-Location desktop
-          go build -ldflags "-s -w" -o "../$out/GetCourseDownloader.exe" .
-          Pop-Location
-          Copy-Item -Recurse -Force extension "$out/extension"
-          New-Item -ItemType Directory -Force -Path "$out/downloads" | Out-Null
-
-      - name: Package zip
-        shell: pwsh
-        run: |
-          ./scripts/package-release.ps1 -ZipPath "GetCourseDownloader-windows-amd64.zip"
+          $arches = @(
+            @{ goarch = "amd64"; label = "x64" },
+            @{ goarch = "arm64"; label = "arm64" },
+            @{ goarch = "386";   label = "x86" }
+          )
+          foreach ($a in $arches) {
+            $bundle = "dist/win-$($a.label)/GetCourseDownloader"
+            New-Item -ItemType Directory -Force -Path $bundle | Out-Null
+            Push-Location desktop
+            $env:GOOS = "windows"
+            $env:GOARCH = $a.goarch
+            go build -ldflags "-s -w" -o "../$bundle/GetCourseDownloader.exe" .
+            Pop-Location
+            Copy-Item -Recurse -Force extension "$bundle/extension"
+            New-Item -ItemType Directory -Force -Path "$bundle/downloads" | Out-Null
+            $zip = "GetCourseDownloader-windows-$($a.label).zip"
+            ./scripts/package-release.ps1 -ZipPath $zip -SourceDir $bundle
+          }
 
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-amd64
-          path: GetCourseDownloader-windows-amd64.zip
+          name: windows-builds
+          path: GetCourseDownloader-windows-*.zip
 
   build-macos:
     runs-on: macos-latest
@@ -56,7 +62,7 @@ jobs:
           go-version: "1.22.x"
           cache-dependency-path: desktop/go.mod
 
-      - name: Build universal binary
+      - name: Build universal binary (Intel + Apple Silicon)
         run: |
           set -euo pipefail
           OUT="dist/GetCourseDownloader"
@@ -73,20 +79,58 @@ jobs:
       - name: Package zip
         run: |
           chmod +x scripts/package-release.sh
-          ./scripts/package-release.sh GetCourseDownloader-macos-universal.zip
+          ./scripts/package-release.sh GetCourseDownloader-macos.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-universal
-          path: GetCourseDownloader-macos-universal.zip
+          name: macos-build
+          path: GetCourseDownloader-macos.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache-dependency-path: desktop/go.mod
+
+      - name: Build Linux architectures
+        run: |
+          set -euo pipefail
+          for pair in "amd64:x64" "arm64:arm64"; do
+            goarch="${pair%%:*}"
+            label="${pair##*:}"
+            OUT="dist/linux-${label}/GetCourseDownloader"
+            mkdir -p "$OUT/downloads"
+            cd desktop
+            GOOS=linux GOARCH="$goarch" go build -ldflags "-s -w" -o "../$OUT/GetCourseDownloader" .
+            cd ..
+            rm -rf "$OUT/extension"
+            cp -R extension "$OUT/extension"
+            chmod +x "$OUT/GetCourseDownloader"
+            zip_name="GetCourseDownloader-linux-${label}.zip"
+            chmod +x scripts/package-release.sh
+            ./scripts/package-release.sh "$zip_name" "$OUT"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-builds
+          path: GetCourseDownloader-linux-*.zip
 
   publish:
-    needs: [build-windows, build-macos]
+    needs: [build-windows, build-macos, build-linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
+
+      - name: List release files
+        run: find artifacts -type f -name '*.zip' | sort
 
       - name: Resolve version tag
         id: ver
@@ -103,19 +147,21 @@ jobs:
           name: GetCourse Downloader ${{ steps.ver.outputs.tag }}
           draft: false
           generate_release_notes: true
-          files: |
-            artifacts/windows-amd64/GetCourseDownloader-windows-amd64.zip
-            artifacts/macos-universal/GetCourseDownloader-macos-universal.zip
+          files: artifacts/**/*.zip
           body: |
             ## Скачать
 
-            | Платформа | Архив |
-            |-----------|--------|
-            | **Windows** 10/11 (64-bit) | `GetCourseDownloader-windows-amd64.zip` |
-            | **macOS** 11+ (Intel + Apple Silicon) | `GetCourseDownloader-macos-universal.zip` |
+            | Платформа | Файл |
+            |-----------|------|
+            | Windows 64-bit (Intel/AMD) | `GetCourseDownloader-windows-x64.zip` |
+            | Windows ARM (Surface и др.) | `GetCourseDownloader-windows-arm64.zip` |
+            | Windows 32-bit (старые ПК) | `GetCourseDownloader-windows-x86.zip` |
+            | macOS (Intel + Apple Silicon) | `GetCourseDownloader-macos.zip` |
+            | Linux 64-bit | `GetCourseDownloader-linux-x64.zip` |
+            | Linux ARM64 | `GetCourseDownloader-linux-arm64.zip` |
 
             В каждом архиве: приложение, папка `extension`, `RELEASE.txt`.
 
-            **Видео:** нужен `ffmpeg` рядом с программой (Windows) или в PATH / рядом (macOS). Расширение Chrome подскажет, если ffmpeg не найден.
+            **Видео:** нужен `ffmpeg` рядом с программой или в PATH. Расширение Chrome подскажет, если ffmpeg не найден.
 
-            Расширение: `chrome://extensions` → загрузить распакованное → папка `extension` из архива.
+            Прямые ссылки на последний релиз — в [README](https://github.com/VladislavIvanovQA/GetCourseScripts#скачать-готовую-сборку).

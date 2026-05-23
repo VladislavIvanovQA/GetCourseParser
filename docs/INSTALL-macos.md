@@ -31,7 +31,7 @@ cd GetCourseScripts
 
 ## 3. Установка
 
-**Готовый архив:** [Releases](https://github.com/VladislavIvanovQA/GetCourseScripts/releases) → `GetCourseDownloader-macos-universal.zip`.
+**Готовый архив:** [GetCourseDownloader-macos.zip](https://github.com/VladislavIvanovQA/GetCourseScripts/releases/latest/download/GetCourseDownloader-macos.zip) (Intel + Apple Silicon).
 
 **Сборка из исходников:**
 

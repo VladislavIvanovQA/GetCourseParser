@@ -1,12 +1,20 @@
 GetCourse Downloader — portable build
 =====================================
 
+Какой архив скачать (см. README на GitHub):
+  Windows — обычный ПК: windows-x64
+  Windows — ноутбук на ARM (Surface): windows-arm64
+  Windows — очень старый 32-bit: windows-x86
+  macOS — любой Mac с 2010-х: macos (один файл)
+  Linux — ПК/ноутбук 64-bit: linux-x64
+  Linux — Raspberry Pi / ARM: linux-arm64
+
 1. Распакуйте архив в любую папку.
 
-2. Видео требует ffmpeg:
-   - Windows: положите ffmpeg.exe рядом с GetCourseDownloader.exe
-     (расширение Chrome подскажет ссылку на скачивание, или scripts/setup-ffmpeg.ps1 из репозитория).
-   - macOS: brew install ffmpeg  ИЛИ  положите бинарник ffmpeg рядом с GetCourseDownloader.
+2. Видео требует ffmpeg той же разрядности, что и программа:
+   - Windows: ffmpeg.exe рядом с GetCourseDownloader.exe
+   - macOS / Linux: ffmpeg в PATH или рядом с программой
+   Расширение Chrome подскажет ссылку, если ffmpeg не найден.
 
 3. Запустите GetCourseDownloader (.exe на Windows).
 
@@ -18,4 +26,4 @@ GetCourse Downloader — portable build
 
 Не публикуйте config.json — в нём токен доступа к localhost API.
 
-Подробнее: https://github.com/VladislavIvanovQA/GetCourseScripts
+https://github.com/VladislavIvanovQA/GetCourseScripts
