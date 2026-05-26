@@ -66,8 +66,20 @@
 
   <label><input type="checkbox" id="savePdf" checked /> PDF страницы</label>
   <label><input type="checkbox" id="saveText" checked /> Текст lesson.txt</label>
-  <label>Параллельных уроков <input id="maxParallel" type="number" min="1" max="8" value="2" style="width:50px;display:inline-block" /></label>
-  <p class="hint">Файлы внутри каждого урока тоже качаются параллельно. Видео — по одному (ограничение CDN).</p>
+
+  <details id="parallelDetails" style="margin-top:8px;font-size:12px">
+    <summary style="cursor:pointer;color:#555">Скорость загрузки</summary>
+    <div style="margin-top:6px">
+      <label>Уроков одновременно
+        <input id="maxParallel" type="number" min="1" max="8" value="2" style="width:50px;display:inline-block" />
+      </label>
+      <label>Файлов на урок
+        <input id="maxFiles" type="number" min="1" max="16" value="4" style="width:50px;display:inline-block" />
+      </label>
+      <button type="button" class="secondary" id="saveParallel" style="margin-top:6px;font-size:11px">Сохранить</button>
+      <p class="hint" style="margin-top:4px">Видео — по одному (ограничение CDN). Больше параллелизма = быстрее, но риск бана IP при >4 уроках.</p>
+    </div>
+  </details>
 
   <div class="row">
     <button id="enqueue">+ В очередь</button>

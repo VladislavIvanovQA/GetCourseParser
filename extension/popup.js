@@ -5,6 +5,8 @@ const tokenEl = document.getElementById("token");
 const savePdfEl = document.getElementById("savePdf");
 const saveTextEl = document.getElementById("saveText");
 const maxParallelEl = document.getElementById("maxParallel");
+const maxFilesEl = document.getElementById("maxFiles");
+const saveParallelBtn = document.getElementById("saveParallel");
 const queueEl = document.getElementById("queue");
 const ffmpegBanner = document.getElementById("ffmpegBanner");
 const ffmpegTitle = document.getElementById("ffmpegTitle");
@@ -42,7 +44,25 @@ async function saveSettings() {
 
 async function apiGet(path) {
   const port = Number(portEl.value) || DEFAULT_PORT;
-  const r = await fetch(`http://127.0.0.1:${port}${path}`);
+  const token = tokenEl.value.trim();
+  const r = await fetch(`http://127.0.0.1:${port}${path}`, {
+    headers: token ? { "X-GC-Token": token } : {},
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function apiPost(path, body) {
+  const port = Number(portEl.value) || DEFAULT_PORT;
+  const token = tokenEl.value.trim();
+  const r = await fetch(`http://127.0.0.1:${port}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { "X-GC-Token": token } : {}),
+    },
+    body: JSON.stringify(body),
+  });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
@@ -150,6 +170,7 @@ document.getElementById("connect").addEventListener("click", async () => {
       chrome.runtime.getPlatformInfo(resolve);
     });
     renderFfmpegBanner(health, platformInfo);
+    await loadServerSettings();
     const ff = health.ffmpeg;
     const ffNote = ff?.found ? "\nffmpeg: OK" : "\n⚠ ffmpeg не найден — видео не скачаются (см. блок ниже)";
     alert(`Подключено v${health.version || "?"}${ffNote}`);
@@ -205,9 +226,41 @@ ffmpegRecheckBtn.addEventListener("click", async () => {
   else alert("ffmpeg всё ещё не найден. Положите бинарник в папку exe и перезапустите программу.");
 });
 
+async function loadServerSettings() {
+  try {
+    const s = await apiGet("/api/settings");
+    maxParallelEl.value = s.max_parallel_jobs || 2;
+    maxFilesEl.value = s.max_parallel_files || 4;
+    await chrome.storage.local.set({
+      gcMaxParallel: s.max_parallel_jobs || 2,
+    });
+  } catch {
+    // server not running yet
+  }
+}
+
+saveParallelBtn.addEventListener("click", async () => {
+  const jobs = Math.max(1, Math.min(8, Number(maxParallelEl.value) || 2));
+  const files = Math.max(1, Math.min(16, Number(maxFilesEl.value) || 4));
+  try {
+    await apiPost("/api/settings", {
+      max_parallel_jobs: jobs,
+      max_parallel_files: files,
+    });
+    await chrome.storage.local.set({ gcMaxParallel: jobs });
+    maxParallelEl.value = jobs;
+    maxFilesEl.value = files;
+    saveParallelBtn.textContent = "Сохранено!";
+    setTimeout(() => (saveParallelBtn.textContent = "Сохранить"), 1500);
+  } catch (e) {
+    alert("Не удалось сохранить: " + e.message);
+  }
+});
+
 loadSettings().then(() => {
   refreshQueue();
   checkFfmpegStatus();
+  loadServerSettings();
 });
 setInterval(refreshQueue, 1500);
 setInterval(checkFfmpegStatus, 5000);

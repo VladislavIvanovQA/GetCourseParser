@@ -24,6 +24,7 @@ func New(cfg *config.Config) *Server {
 	s := &Server{cfg: cfg, mux: http.NewServeMux()}
 	s.mux.HandleFunc("/health", s.handleHealth)
 	s.mux.HandleFunc("/api/pair", s.handlePair)
+	s.mux.HandleFunc("/api/settings", s.handleSettings)
 	s.mux.HandleFunc("/api/lesson", s.handleLesson)
 	s.mux.HandleFunc("/api/job", s.handleJob)
 	return s
@@ -89,6 +90,60 @@ func (s *Server) handlePair(w http.ResponseWriter, r *http.Request) {
 		"token": s.cfg.Token,
 		"port":  s.cfg.Port,
 	})
+}
+
+func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
+	if !s.checkToken(r) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		writeJSON(w, map[string]any{
+			"max_parallel_jobs":  s.cfg.MaxParallelJobs,
+			"max_parallel_files": s.cfg.MaxParallelFiles,
+			"download_dir":       s.cfg.DownloadsPath(),
+		})
+	case http.MethodPost:
+		var body struct {
+			MaxParallelJobs  *int `json:"max_parallel_jobs"`
+			MaxParallelFiles *int `json:"max_parallel_files"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, "bad json: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if body.MaxParallelJobs != nil {
+			v := *body.MaxParallelJobs
+			if v < 1 {
+				v = 1
+			} else if v > 8 {
+				v = 8
+			}
+			s.cfg.MaxParallelJobs = v
+		}
+		if body.MaxParallelFiles != nil {
+			v := *body.MaxParallelFiles
+			if v < 1 {
+				v = 1
+			} else if v > 16 {
+				v = 16
+			}
+			s.cfg.MaxParallelFiles = v
+		}
+		if err := s.cfg.Save(); err != nil {
+			http.Error(w, "save failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		log.Printf("Settings updated: parallel_jobs=%d parallel_files=%d", s.cfg.MaxParallelJobs, s.cfg.MaxParallelFiles)
+		writeJSON(w, map[string]any{
+			"ok":                 true,
+			"max_parallel_jobs":  s.cfg.MaxParallelJobs,
+			"max_parallel_files": s.cfg.MaxParallelFiles,
+		})
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *Server) handleLesson(w http.ResponseWriter, r *http.Request) {
