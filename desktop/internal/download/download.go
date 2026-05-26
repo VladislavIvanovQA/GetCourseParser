@@ -222,13 +222,25 @@ func processLesson(cfg *config.Config, payload *bundle.LessonPayload, report Pro
 			continue
 		}
 		vn++
-		report(50+(vn*45)/max(videoTotal, 1), fmt.Sprintf("Видео %d/%d…", vn, videoTotal))
+		pctBase := 50 + ((vn-1)*45)/max(videoTotal, 1)
+		report(pctBase, fmt.Sprintf("Видео %d/%d: загрузка…", vn, videoTotal))
 		out := filepath.Join(targetDir, fmt.Sprintf("video_%02d.mp4", vn))
-		if err := downloadVideo(vAuth, vurl, out); err != nil {
+
+		videoReport := func(_ int, msg string) {
+			report(pctBase, fmt.Sprintf("Видео %d/%d: %s", vn, videoTotal, msg))
+		}
+
+		if err := downloadVideoWithProgress(vAuth, vurl, out, videoReport); err != nil {
 			res.Errors = append(res.Errors, fmt.Sprintf("video %s: %v", vurl, err))
 			_ = os.Remove(out)
 		} else {
-			res.VideosSaved++
+			if fi, err := os.Stat(out); err == nil && fi.Size() > 0 {
+				res.VideosSaved++
+				report(pctBase+40/max(videoTotal, 1), fmt.Sprintf("Видео %d/%d: готово (%d MB)", vn, videoTotal, fi.Size()/(1024*1024)))
+			} else {
+				res.Errors = append(res.Errors, fmt.Sprintf("video %d: file empty or missing after download", vn))
+				_ = os.Remove(out)
+			}
 		}
 	}
 
@@ -265,6 +277,10 @@ func downloadFile(auth Auth, fileURL, target string) error {
 }
 
 func downloadVideo(auth Auth, streamURL, output string) error {
+	return downloadVideoWithProgress(auth, streamURL, output, nil)
+}
+
+func downloadVideoWithProgress(auth Auth, streamURL, output string, report ProgressFunc) error {
 	ffPath, _ := ffmpeg.Find()
 	if ffPath == "" {
 		return fmt.Errorf("ffmpeg not found next to %s (or in PATH)", config.AppDir())
@@ -281,13 +297,13 @@ func downloadVideo(auth Auth, streamURL, output string) error {
 
 	if err := prefetchPlaylist(auth, streamURL, tmpPath); err == nil {
 		if isM3U8File(tmpPath) {
-			if err := runFFmpeg(ffPath, tmpPath, output, headers, auth.UserAgent, true); err == nil {
+			if err := runFFmpegWithHeartbeat(ffPath, tmpPath, output, headers, auth.UserAgent, true, report); err == nil {
 				return nil
 			}
 		}
 	}
 
-	return runFFmpeg(ffPath, streamURL, output, headers, auth.UserAgent, needsHLSDemuxer(streamURL))
+	return runFFmpegWithHeartbeat(ffPath, streamURL, output, headers, auth.UserAgent, needsHLSDemuxer(streamURL), report)
 }
 
 // Kinescope / gceuproxy: playlists without .m3u8 and segments as .bin
@@ -334,7 +350,11 @@ func isM3U8File(path string) bool {
 	return strings.Contains(s, "#EXTM3U") || strings.Contains(s, "#EXT-X-STREAM-INF")
 }
 
-func runFFmpeg(ffmpeg, input, output, headers, ua string, forceHLS bool) error {
+func runFFmpeg(ffmpegBin, input, output, headers, ua string, forceHLS bool) error {
+	return runFFmpegWithHeartbeat(ffmpegBin, input, output, headers, ua, forceHLS, nil)
+}
+
+func runFFmpegWithHeartbeat(ffmpegBin, input, output, headers, ua string, forceHLS bool, report ProgressFunc) error {
 	args := []string{
 		"-loglevel", "warning", "-stats",
 		"-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5",
@@ -344,7 +364,6 @@ func runFFmpeg(ffmpeg, input, output, headers, ua string, forceHLS bool) error {
 		args = append(args, "-headers", headers)
 	}
 	if forceHLS {
-		// gceuproxy/Kinescope: media playlists and .bin segments
 		args = append(args,
 			"-extension_picky", "0",
 			"-allowed_extensions", "ALL",
@@ -359,10 +378,37 @@ func runFFmpeg(ffmpeg, input, output, headers, ua string, forceHLS bool) error {
 		"-movflags", "+faststart",
 		output,
 	)
-	cmd := exec.Command(ffmpeg, args...)
+	cmd := exec.Command(ffmpegBin, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	startTime := time.Now()
+	for {
+		select {
+		case err := <-done:
+			return err
+		case <-ticker.C:
+			if report != nil {
+				elapsed := time.Since(startTime).Truncate(time.Second)
+				fi, _ := os.Stat(output)
+				sizeMB := int64(0)
+				if fi != nil {
+					sizeMB = fi.Size() / (1024 * 1024)
+				}
+				report(0, fmt.Sprintf("ffmpeg: %s, %d MB", elapsed, sizeMB))
+			}
+		}
+	}
 }
 
 func buildFFmpegHeaders(auth Auth) string {

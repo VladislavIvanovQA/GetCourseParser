@@ -81,9 +81,9 @@ func (m *Manager) Start(cfg *config.Config, payload *bundle.LessonPayload) strin
 	id := newID()
 	st := &Status{
 		ID:        id,
-		State:     "queued",
+		State:     "running",
 		Progress:  0,
-		Message:   "В очереди…",
+		Message:   "Старт…",
 		StartedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -92,8 +92,6 @@ func (m *Manager) Start(cfg *config.Config, payload *bundle.LessonPayload) strin
 	m.mu.Unlock()
 
 	m.queue <- jobRequest{id: id, cfg: cfg, payload: payload}
-	m.update(id, "running", 0, "Старт…", nil, "")
-
 	return id
 }
 

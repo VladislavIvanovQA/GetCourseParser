@@ -219,10 +219,10 @@ async function apiGet(settings, path) {
 }
 
 async function pollDesktopJob(settings, jobId, extJobId) {
-  for (let i = 0; i < 3600; i++) {
-    await sleep(800);
+  for (let i = 0; i < 7200; i++) {
+    await sleep(1000);
     const st = await apiGet(settings, `/api/job?id=${encodeURIComponent(jobId)}`);
-    const pct = Math.min(95, 55 + Math.floor((st.progress || 0) * 0.4));
+    const pct = st.state === "done" ? 100 : Math.min(95, st.progress || 0);
     await patchJob(extJobId, {
       progress: pct,
       message: st.message || "Скачивание…",
