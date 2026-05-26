@@ -64,10 +64,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	ff, platform, install := ffmpeg.StatusForHealth()
 	resp := map[string]any{
 		"ok":       true,
-		"version":  "1.1.0",
+		"version":  "1.2.0",
 		"port":     s.cfg.Port,
 		"platform": platform,
 		"ffmpeg":   ff,
+		"parallel": map[string]int{
+			"max_jobs":  s.cfg.MaxParallelJobs,
+			"max_files": s.cfg.MaxParallelFiles,
+		},
 	}
 	if install != nil {
 		resp["ffmpeg_install"] = install

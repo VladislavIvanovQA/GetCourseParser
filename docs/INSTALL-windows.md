@@ -42,4 +42,4 @@ dist\GetCourseDownloader\GetCourseDownloader.exe
 
 ## 5. Использование
 
-См. раздел «Очередь и прогресс» в [README.md](../README.md).
+См. [Инструкция: установка и использование](../README.md#инструкция-установка-и-использование) в README.

@@ -66,6 +66,8 @@
 
   <label><input type="checkbox" id="savePdf" checked /> PDF страницы</label>
   <label><input type="checkbox" id="saveText" checked /> Текст lesson.txt</label>
+  <label>Параллельных уроков <input id="maxParallel" type="number" min="1" max="8" value="2" style="width:50px;display:inline-block" /></label>
+  <p class="hint">Файлы внутри каждого урока тоже качаются параллельно. Видео — по одному (ограничение CDN).</p>
 
   <div class="row">
     <button id="enqueue">+ В очередь</button>

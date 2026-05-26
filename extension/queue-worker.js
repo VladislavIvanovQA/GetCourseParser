@@ -1,20 +1,25 @@
 const STORAGE_QUEUE = "gcQueue";
 const STORAGE_SETTINGS = "gcSettings";
+const DEFAULT_MAX_PARALLEL = 2;
 
 let queueProcessing = false;
+let activeJobs = 0;
 
 async function loadSettings() {
-  const { gcPort, gcToken, gcSavePdf, gcSaveText } = await chrome.storage.local.get([
-    "gcPort",
-    "gcToken",
-    "gcSavePdf",
-    "gcSaveText",
-  ]);
+  const { gcPort, gcToken, gcSavePdf, gcSaveText, gcMaxParallel } =
+    await chrome.storage.local.get([
+      "gcPort",
+      "gcToken",
+      "gcSavePdf",
+      "gcSaveText",
+      "gcMaxParallel",
+    ]);
   return {
     port: gcPort || 18765,
     token: gcToken || "",
     savePdf: gcSavePdf !== false,
     saveText: gcSaveText !== false,
+    maxParallel: Math.max(1, gcMaxParallel || DEFAULT_MAX_PARALLEL),
   };
 }
 
@@ -30,10 +35,10 @@ async function saveQueue(queue) {
 
 function updateBadge(queue) {
   const q = queue || [];
-  const running = q.find((j) => j.status === "running");
+  const running = q.filter((j) => j.status === "running").length;
   const queued = q.filter((j) => j.status === "queued").length;
-  if (running) {
-    chrome.action.setBadgeText({ text: "…" });
+  if (running > 0) {
+    chrome.action.setBadgeText({ text: running > 1 ? `${running}⇣` : "…" });
     chrome.action.setBadgeBackgroundColor({ color: "#e67e22" });
   } else if (queued > 0) {
     chrome.action.setBadgeText({ text: String(queued) });
@@ -95,15 +100,28 @@ async function processQueue() {
   if (queueProcessing) return;
   queueProcessing = true;
   try {
-    while (true) {
-      const queue = await loadQueue();
-      const job = queue.find((j) => j.status === "queued");
-      if (!job) break;
-      await runJob(job);
-    }
+    await launchParallelJobs();
   } finally {
     queueProcessing = false;
     updateBadge(await loadQueue());
+  }
+}
+
+async function launchParallelJobs() {
+  const settings = await loadSettings();
+  const maxP = settings.maxParallel;
+  while (true) {
+    const queue = await loadQueue();
+    const running = queue.filter((j) => j.status === "running").length;
+    if (running >= maxP) return;
+    const next = queue.find((j) => j.status === "queued");
+    if (!next) return;
+    activeJobs++;
+    runJob(next).finally(() => {
+      activeJobs--;
+      processQueue();
+    });
+    if (running + 1 >= maxP) return;
   }
 }
 

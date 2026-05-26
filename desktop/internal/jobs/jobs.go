@@ -22,9 +22,19 @@ type Status struct {
 	UpdatedAt time.Time             `json:"updated_at"`
 }
 
+type jobRequest struct {
+	id      string
+	cfg     *config.Config
+	payload *bundle.LessonPayload
+}
+
 type Manager struct {
 	mu   sync.RWMutex
 	jobs map[string]*Status
+
+	once    sync.Once
+	queue   chan jobRequest
+	workers int
 }
 
 var Default = &Manager{jobs: make(map[string]*Status)}
@@ -35,13 +45,45 @@ func newID() string {
 	return hex.EncodeToString(b)
 }
 
+func (m *Manager) ensureWorkers(maxParallel int) {
+	m.once.Do(func() {
+		if maxParallel < 1 {
+			maxParallel = 2
+		}
+		m.workers = maxParallel
+		m.queue = make(chan jobRequest, 256)
+		for i := 0; i < m.workers; i++ {
+			go m.worker()
+		}
+	})
+}
+
+func (m *Manager) worker() {
+	for req := range m.queue {
+		m.runJob(req)
+	}
+}
+
+func (m *Manager) runJob(req jobRequest) {
+	result, err := download.ProcessLessonWithProgress(req.cfg, req.payload, func(pct int, msg string) {
+		m.update(req.id, "running", pct, msg, nil, "")
+	})
+	if err != nil {
+		m.update(req.id, "error", 100, err.Error(), nil, err.Error())
+		return
+	}
+	m.update(req.id, "done", 100, "Готово", result, "")
+}
+
 func (m *Manager) Start(cfg *config.Config, payload *bundle.LessonPayload) string {
+	m.ensureWorkers(cfg.MaxParallelJobs)
+
 	id := newID()
 	st := &Status{
 		ID:        id,
-		State:     "running",
+		State:     "queued",
 		Progress:  0,
-		Message:   "Старт…",
+		Message:   "В очереди…",
 		StartedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -49,16 +91,8 @@ func (m *Manager) Start(cfg *config.Config, payload *bundle.LessonPayload) strin
 	m.jobs[id] = st
 	m.mu.Unlock()
 
-	go func() {
-		result, err := download.ProcessLessonWithProgress(cfg, payload, func(pct int, msg string) {
-			m.update(id, "running", pct, msg, nil, "")
-		})
-		if err != nil {
-			m.update(id, "error", 100, err.Error(), nil, err.Error())
-			return
-		}
-		m.update(id, "done", 100, "Готово", result, "")
-	}()
+	m.queue <- jobRequest{id: id, cfg: cfg, payload: payload}
+	m.update(id, "running", 0, "Старт…", nil, "")
 
 	return id
 }

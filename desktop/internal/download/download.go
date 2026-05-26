@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/getcourse-downloader/getcourse-downloader/internal/bundle"
@@ -123,20 +125,58 @@ func processLesson(cfg *config.Config, payload *bundle.LessonPayload, report Pro
 	_ = os.WriteFile(linksTxt, []byte(linksContent.String()), 0o644)
 
 	fileTotal := len(parsed.Files)
-	for i, fe := range parsed.Files {
-		if fileTotal > 0 {
-			report(20+(i*30)/max(fileTotal, 1), fmt.Sprintf("Файл %d/%d…", i+1, fileTotal))
+	if fileTotal > 0 {
+		workers := cfg.MaxParallelFiles
+		if workers < 1 {
+			workers = 4
 		}
-		filename := parser.FilenameWithURLExt(fe.Name, fe.URL)
-		target := filepath.Join(targetDir, filename)
-		if _, err := os.Stat(target); err == nil {
-			target = filepath.Join(targetDir, fmt.Sprintf("%d_%s", i+1, filename))
+		type fileTask struct {
+			idx      int
+			fe       parser.FileEntry
+			filename string
+			target   string
 		}
-		if err := downloadFile(auth, fe.URL, target); err != nil {
-			res.Errors = append(res.Errors, fmt.Sprintf("file %s: %v", filename, err))
-		} else {
-			res.FilesSaved++
+		tasks := make([]fileTask, 0, fileTotal)
+		for i, fe := range parsed.Files {
+			filename := parser.FilenameWithURLExt(fe.Name, fe.URL)
+			target := filepath.Join(targetDir, filename)
+			if _, err := os.Stat(target); err == nil {
+				target = filepath.Join(targetDir, fmt.Sprintf("%d_%s", i+1, filename))
+			}
+			tasks = append(tasks, fileTask{idx: i, fe: fe, filename: filename, target: target})
 		}
+
+		var (
+			fileMu   sync.Mutex
+			doneFiles int32
+		)
+		taskCh := make(chan fileTask, len(tasks))
+		for _, t := range tasks {
+			taskCh <- t
+		}
+		close(taskCh)
+
+		var wg sync.WaitGroup
+		for w := 0; w < workers && w < fileTotal; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for t := range taskCh {
+					done := int(atomic.AddInt32(&doneFiles, 1))
+					report(20+(done*30)/max(fileTotal, 1), fmt.Sprintf("Файл %d/%d…", done, fileTotal))
+					if err := downloadFile(auth, t.fe.URL, t.target); err != nil {
+						fileMu.Lock()
+						res.Errors = append(res.Errors, fmt.Sprintf("file %s: %v", t.filename, err))
+						fileMu.Unlock()
+					} else {
+						fileMu.Lock()
+						res.FilesSaved++
+						fileMu.Unlock()
+					}
+				}
+			}()
+		}
+		wg.Wait()
 	}
 
 	vAuth := auth

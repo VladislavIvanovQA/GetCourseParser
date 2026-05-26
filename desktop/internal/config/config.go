@@ -11,9 +11,11 @@ import (
 const DefaultPort = 18765
 
 type Config struct {
-	Port        int    `json:"port"`
-	Token       string `json:"token"`
-	DownloadDir string `json:"download_dir"`
+	Port             int    `json:"port"`
+	Token            string `json:"token"`
+	DownloadDir      string `json:"download_dir"`
+	MaxParallelJobs  int    `json:"max_parallel_jobs"`
+	MaxParallelFiles int    `json:"max_parallel_files"`
 }
 
 func AppDir() string {
@@ -50,6 +52,7 @@ func Load() (*Config, error) {
 	if c.DownloadDir == "" {
 		c.DownloadDir = "downloads"
 	}
+	c.applyDefaults()
 	return &c, nil
 }
 
@@ -59,7 +62,17 @@ func CreateDefault() (*Config, error) {
 		Token:       newToken(),
 		DownloadDir: "downloads",
 	}
+	c.applyDefaults()
 	return c, c.Save()
+}
+
+func (c *Config) applyDefaults() {
+	if c.MaxParallelJobs < 1 {
+		c.MaxParallelJobs = 2
+	}
+	if c.MaxParallelFiles < 1 {
+		c.MaxParallelFiles = 4
+	}
 }
 
 func (c *Config) Save() error {

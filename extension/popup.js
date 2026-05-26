@@ -4,6 +4,7 @@ const portEl = document.getElementById("port");
 const tokenEl = document.getElementById("token");
 const savePdfEl = document.getElementById("savePdf");
 const saveTextEl = document.getElementById("saveText");
+const maxParallelEl = document.getElementById("maxParallel");
 const queueEl = document.getElementById("queue");
 const ffmpegBanner = document.getElementById("ffmpegBanner");
 const ffmpegTitle = document.getElementById("ffmpegTitle");
@@ -20,11 +21,13 @@ async function loadSettings() {
     "gcToken",
     "gcSavePdf",
     "gcSaveText",
+    "gcMaxParallel",
   ]);
   if (data.gcPort) portEl.value = data.gcPort;
   if (data.gcToken) tokenEl.value = data.gcToken;
   if (data.gcSavePdf !== undefined) savePdfEl.checked = data.gcSavePdf;
   if (data.gcSaveText !== undefined) saveTextEl.checked = data.gcSaveText;
+  if (data.gcMaxParallel) maxParallelEl.value = data.gcMaxParallel;
 }
 
 async function saveSettings() {
@@ -33,6 +36,7 @@ async function saveSettings() {
     gcToken: tokenEl.value.trim(),
     gcSavePdf: savePdfEl.checked,
     gcSaveText: saveTextEl.checked,
+    gcMaxParallel: Math.max(1, Math.min(8, Number(maxParallelEl.value) || 2)),
   });
 }
 
