@@ -124,30 +124,32 @@ func processLesson(cfg *config.Config, payload *bundle.LessonPayload, report Pro
 	}
 	_ = os.WriteFile(linksTxt, []byte(linksContent.String()), 0o644)
 
-	fileTotal := len(parsed.Files)
+	dedupedFiles := deduplicateFiles(parsed.Files)
+	fileTotal := len(dedupedFiles)
 	if fileTotal > 0 {
 		workers := cfg.MaxParallelFiles
 		if workers < 1 {
 			workers = 4
 		}
 		type fileTask struct {
-			idx      int
 			fe       parser.FileEntry
 			filename string
 			target   string
 		}
+		usedNames := make(map[string]bool)
 		tasks := make([]fileTask, 0, fileTotal)
-		for i, fe := range parsed.Files {
+		for i, fe := range dedupedFiles {
 			filename := parser.FilenameWithURLExt(fe.Name, fe.URL)
-			target := filepath.Join(targetDir, filename)
-			if _, err := os.Stat(target); err == nil {
-				target = filepath.Join(targetDir, fmt.Sprintf("%d_%s", i+1, filename))
+			if usedNames[strings.ToLower(filename)] {
+				filename = fmt.Sprintf("%d_%s", i+1, filename)
 			}
-			tasks = append(tasks, fileTask{idx: i, fe: fe, filename: filename, target: target})
+			usedNames[strings.ToLower(filename)] = true
+			target := filepath.Join(targetDir, filename)
+			tasks = append(tasks, fileTask{fe: fe, filename: filename, target: target})
 		}
 
 		var (
-			fileMu   sync.Mutex
+			fileMu    sync.Mutex
 			doneFiles int32
 		)
 		taskCh := make(chan fileTask, len(tasks))
@@ -415,6 +417,37 @@ func applyHeaders(req *http.Request, auth Auth, requestURL string, video bool) {
 	if auth.Cookie != "" {
 		req.Header.Set("Cookie", auth.Cookie)
 	}
+}
+
+func deduplicateFiles(files []parser.FileEntry) []parser.FileEntry {
+	seenURL := make(map[string]bool)
+	var out []parser.FileEntry
+	for _, fe := range files {
+		u := strings.TrimSpace(fe.URL)
+		if u == "" {
+			continue
+		}
+		key := normalizeFileURL(u)
+		if seenURL[key] {
+			continue
+		}
+		seenURL[key] = true
+		out = append(out, fe)
+	}
+	return out
+}
+
+func normalizeFileURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return strings.ToLower(rawURL)
+	}
+	u.Fragment = ""
+	q := u.Query()
+	q.Del("_")
+	q.Del("t")
+	u.RawQuery = q.Encode()
+	return strings.ToLower(u.String())
 }
 
 func uniqueStrings(in []string) []string {
